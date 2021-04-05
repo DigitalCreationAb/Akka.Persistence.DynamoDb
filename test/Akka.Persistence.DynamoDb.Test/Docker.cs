@@ -33,6 +33,8 @@ namespace Akka.Persistence.DynamoDb.Test
                                                {
                                                    Services = ImmutableDictionary<string, string>.Empty
                                                };
+                            
+                            Console.WriteLine($"Polled localstack with result: {response.Content.ReadAsStringAsync().Result}");
 
                             if (responseData.Services.Any()
                                 && responseData.Services.ContainsKey("dynamodb") &&
@@ -44,11 +46,13 @@ namespace Akka.Persistence.DynamoDb.Test
                             }
                         }
 
-                        Thread.Sleep(TimeSpan.FromSeconds(1));
+                        Thread.Sleep(TimeSpan.FromSeconds(5));
                     }
-                    catch (Exception)
+                    catch (Exception exception)
                     {
-                        Thread.Sleep(TimeSpan.FromSeconds(1));
+                        Console.WriteLine($"Failed polling localstack: {exception.Message}");
+                        
+                        Thread.Sleep(TimeSpan.FromSeconds(5));
                     }
                 }
 
