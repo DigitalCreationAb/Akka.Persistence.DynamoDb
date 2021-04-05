@@ -34,9 +34,9 @@ namespace Akka.Persistence.DynamoDb.Journal
         private readonly Dictionary<string, ISet<IActorRef>> _tagSubscribers = new();
         private readonly HashSet<IActorRef> _allPersistenceIdSubscribers = new();
 
-        private Table _table;
+        private Table? _table;
         
-        public DynamoDbJournal(Config config = null)
+        public DynamoDbJournal(Config? config = null)
         {
             _actorSystem = Context.System;
             
@@ -47,7 +47,7 @@ namespace Akka.Persistence.DynamoDb.Journal
             _client = DynamoDbSetup.InitClient(_settings);
         }
         
-        public IStash Stash { get; set; }
+        public IStash? Stash { get; set; }
         
         protected override void PreStart()
         {
@@ -74,7 +74,7 @@ namespace Akka.Persistence.DynamoDb.Journal
         {
             var filter = new QueryFilter(EventDocument.Keys.SequenceNumber, QueryOperator.Between, fromSequenceNr, toSequenceNr);
 
-            var search = _table.Query(EventDocument.GetEventGroupKey(persistenceId), filter);
+            var search = _table!.Query(EventDocument.GetEventGroupKey(persistenceId), filter);
 
             var returnedItems = 0L;
             
@@ -104,7 +104,7 @@ namespace Akka.Persistence.DynamoDb.Journal
 
         public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
         {
-            var item = await _table.GetItemAsync(EventDocument.GetHighestSequenceNumberGroupKey(persistenceId), 0L);
+            var item = await _table!.GetItemAsync(EventDocument.GetHighestSequenceNumberGroupKey(persistenceId), 0L);
 
             var eventDocument = item != null ? new EventDocument(item) : null;
 
@@ -116,9 +116,9 @@ namespace Akka.Persistence.DynamoDb.Journal
             return sequenceNumber;
         }
 
-        protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
+        protected override async Task<IImmutableList<Exception?>?> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
-            var results = new List<Exception>();
+            var results = new List<Exception?>();
 
             var allTags = new List<string>();
 
@@ -126,7 +126,7 @@ namespace Akka.Persistence.DynamoDb.Journal
             {
                 try
                 {
-                    var batch = _table.CreateBatchWrite();
+                    var batch = _table!.CreateBatchWrite();
 
                     var items = atomicWrite.Payload.AsInstanceOf<IImmutableList<IPersistentRepresentation>>();
 
@@ -183,7 +183,7 @@ namespace Akka.Persistence.DynamoDb.Journal
         {
             var filter = new QueryFilter(EventDocument.Keys.SequenceNumber, QueryOperator.LessThanOrEqual, toSequenceNr);
 
-            var search = _table.Query(EventDocument.GetEventGroupKey(persistenceId), filter);
+            var search = _table!.Query(EventDocument.GetEventGroupKey(persistenceId), filter);
 
             while (!search.IsDone)
             {
@@ -269,14 +269,14 @@ namespace Akka.Persistence.DynamoDb.Journal
             .With<Events.Initialized>(_ =>
             {
                 UnbecomeStacked();
-                Stash.UnstashAll();
+                Stash?.UnstashAll();
             })
             .With<Failure>(failure =>
             {
                 _log.Error(failure.Exception, "Error during journal initialization");
                 Context.Stop(Self);
             })
-            .Default(_ => Stash.Stash())
+            .Default(_ => Stash?.Stash())
             .WasHandled;
         
         protected override bool ReceivePluginInternal(object message)
@@ -314,7 +314,7 @@ namespace Akka.Persistence.DynamoDb.Journal
             filter.AddCondition(EventDocument.Keys.Tag, QueryOperator.Equal, replay.Tag);
             filter.AddCondition(EventDocument.Keys.Timestamp, QueryOperator.Between, replay.FromOffset + 1, replay.ToOffset);
 
-            var search = _table.Query(new QueryOperationConfig
+            var search = _table!.Query(new QueryOperationConfig
             {
                 Filter = filter,
                 IndexName = "ByTag"
@@ -333,7 +333,7 @@ namespace Akka.Persistence.DynamoDb.Journal
 
                 foreach (var result in results)
                 {
-                    batchGet.AddKey(EventDocument.GetEventGroupKey(result.PersistenceId), result.SequenceNumber);
+                    batchGet.AddKey(EventDocument.GetEventGroupKey(result.PersistenceId!), result.SequenceNumber);
                 }
 
                 await batchGet.ExecuteAsync();
@@ -391,7 +391,7 @@ namespace Akka.Persistence.DynamoDb.Journal
             
             var filter = new QueryFilter(EventDocument.Keys.DocumentType, QueryOperator.Equal, EventDocument.DocumentTypes.HighestSequenceNumber);
 
-            var search = _table.Query(new QueryOperationConfig
+            var search = _table!.Query(new QueryOperationConfig
             {
                 Filter = filter,
                 IndexName = "ByDocumentType"
@@ -401,7 +401,8 @@ namespace Akka.Persistence.DynamoDb.Journal
             {
                 var persistenceIds = (await search.GetNextSetAsync())
                     .Select(x => new EventDocument(x))
-                    .Select(x => x.PersistenceId)
+                    .Select(x => x.PersistenceId ?? "")
+                    .Where(x => !string.IsNullOrEmpty(x))
                     .ToImmutableList();
                 
                 subscriber.Tell(new CurrentPersistenceIdsChunk(persistenceIds, search.IsDone));

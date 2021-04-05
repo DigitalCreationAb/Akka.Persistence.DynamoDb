@@ -9,7 +9,7 @@
   <PropertyGroup>
     <Copyright>Copyright © 2021-2021 Digital Creation Sweden AB</Copyright>
     <Authors>Digital Creation</Authors>
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>0.1.1</VersionPrefix>
     <PackageProjectUrl>
     </PackageProjectUrl>
   </PropertyGroup>

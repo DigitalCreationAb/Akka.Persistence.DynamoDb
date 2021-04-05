@@ -16,13 +16,13 @@ namespace Akka.Persistence.DynamoDb.Snapshot
             _attributes = document.ToAttributeMap().ToImmutableDictionary();
         }
         
-        public string PersistenceId => GetStringValue(Keys.PersistenceId);
+        public string? PersistenceId => GetStringValue(Keys.PersistenceId);
 
         public long SequenceNumber => GetLongValue(Keys.SequenceNumber);
 
         public long Timestamp => GetLongValue(Keys.Timestamp);
 
-        public Type Type => Type.GetType(GetStringValue(Keys.Type));
+        public Type? Type => Type.GetType(GetStringValue(Keys.Type) ?? "System.Object");
 
         public SelectedSnapshot ToSelectedSnapshot(ActorSystem system)
         {
@@ -51,7 +51,7 @@ namespace Akka.Persistence.DynamoDb.Snapshot
             });
         }
         
-        private string GetStringValue(string key)
+        private string? GetStringValue(string key)
         {
             return GetAttributeValue(key, item => item.S);
         }
@@ -61,7 +61,7 @@ namespace Akka.Persistence.DynamoDb.Snapshot
             return GetAttributeValue(key, item => long.TryParse(item.N, out var value) ? value : 0);
         }
         
-        private T GetAttributeValue<T>(string key, Func<AttributeValue, T> parse)
+        private T? GetAttributeValue<T>(string key, Func<AttributeValue, T> parse)
         {
             return _attributes.ContainsKey(key) ? parse(_attributes[key]) : default;
         }

@@ -4,7 +4,7 @@ namespace Akka.Persistence.DynamoDb.Query.QueryApi
 {
     public record EventReplayFailure(Exception Cause)
     {
-        public virtual bool Equals(EventReplayFailure other)
+        public virtual bool Equals(EventReplayFailure? other)
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;

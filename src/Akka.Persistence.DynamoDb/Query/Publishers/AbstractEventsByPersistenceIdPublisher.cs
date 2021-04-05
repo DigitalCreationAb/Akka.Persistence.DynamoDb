@@ -8,7 +8,7 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
 {
     internal abstract class AbstractEventsByPersistenceIdPublisher : ActorPublisher<EventEnvelope>
     {
-        private ILoggingAdapter _log;
+        private ILoggingAdapter? _log;
 
         protected readonly DeliveryBuffer<EventEnvelope> Buffer;
         protected readonly IActorRef JournalRef;
@@ -25,7 +25,6 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
             CurrentSequenceNr = FromSequenceNr = fromSequenceNr;
             ToSequenceNr = toSequenceNr;
             MaxBufferSize = maxBufferSize;
-            WriteJournalPluginId = writeJournalPluginId;
             Buffer = new DeliveryBuffer<EventEnvelope>(OnNext);
 
             JournalRef = Persistence.Instance.Apply(Context.System).JournalFor(writeJournalPluginId);
@@ -36,7 +35,6 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
         protected long FromSequenceNr { get; }
         protected long ToSequenceNr { get; set; }
         protected int MaxBufferSize { get; }
-        protected string WriteJournalPluginId { get; }
 
         protected bool IsTimeForReplay => (Buffer.IsEmpty || Buffer.Length <= MaxBufferSize / 2) && (CurrentSequenceNr <= ToSequenceNr);
 
