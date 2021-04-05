@@ -70,7 +70,7 @@ namespace Akka.Persistence.DynamoDb.Test
                 .EnvironmentVariable("DEBUG", "1")
                 .Run();
 
-            if (WaitForStart(TimeSpan.FromMinutes(1)))
+            if (WaitForStart(TimeSpan.FromMinutes(2)))
                 return runningContainer;
 
             runningContainer.Dispose();
