@@ -9,9 +9,11 @@
   <PropertyGroup>
     <Copyright>Copyright © 2021-2021 Digital Creation Sweden AB</Copyright>
     <Authors>Digital Creation</Authors>
-    <VersionPrefix>0.1.1</VersionPrefix>
+    <Version>0.1.1</Version>
     <PackageProjectUrl>
+      https://github.com/DigitalCreationAb/Akka.Persistence.DynamoDb
     </PackageProjectUrl>
+    <PackageTags>akka</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
