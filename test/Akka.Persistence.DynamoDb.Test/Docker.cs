@@ -15,7 +15,7 @@ namespace Akka.Persistence.DynamoDb.Test
         {
             bool WaitForStart(TimeSpan timeout)
             {
-                Console.WriteLine("Waiting for localstack to start.");
+                Console.WriteLine($"Waiting for localstack to start. (main port: {mainPort}, services port: {servicesPort})");
 
                 var timer = Stopwatch.StartNew();
                 var httpClient = new HttpClient();
@@ -24,7 +24,7 @@ namespace Akka.Persistence.DynamoDb.Test
                 {
                     try
                     {
-                        var response = httpClient.GetAsync($"http://localhost:{mainPort}/health").Result;
+                        var response = httpClient.GetAsync($"http://127.0.0.1:{mainPort}/health").Result;
 
                         if (response.IsSuccessStatusCode)
                         {

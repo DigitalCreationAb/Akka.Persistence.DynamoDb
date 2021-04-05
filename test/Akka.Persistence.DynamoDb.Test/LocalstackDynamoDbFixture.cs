@@ -14,7 +14,7 @@ namespace Akka.Persistence.DynamoDb.Test
                 
             _localstackInstance = Docker.StartDynamoDbLocalstackContainer(mainPort, servicePort);
 
-            AwsServiceUrl = $"http://localhost:{servicePort}";
+            AwsServiceUrl = $"http://127.0.0.1:{servicePort}";
         }
 
         public string AwsServiceUrl { get; }
