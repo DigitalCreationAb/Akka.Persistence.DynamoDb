@@ -4,11 +4,11 @@ using Amazon.Runtime;
 
 namespace Akka.Persistence.DynamoDb.Test
 {
-    public class LocalstackDynamoDbFixture : IDynamoDbFixture
+    public class LocalstackDynamoDbFixture : IDisposable
     {
         private readonly IDisposable _localstackInstance;
 
-        protected LocalstackDynamoDbFixture()
+        public LocalstackDynamoDbFixture()
         {
             var dynamodbUrl = Environment.GetEnvironmentVariable("AWS_DYNAMODB_URL");
 
@@ -16,10 +16,12 @@ namespace Akka.Persistence.DynamoDb.Test
             {
                 AwsServiceUrl = dynamodbUrl;
 
-                var client = new AmazonDynamoDBClient(new BasicAWSCredentials("access-key", "secret-key"), new AmazonDynamoDBConfig
-                {
-                    ServiceURL = AwsServiceUrl
-                });
+                var client = new AmazonDynamoDBClient(
+                    new BasicAWSCredentials("access-key", "secret-key"),
+                    new AmazonDynamoDBConfig
+                    {
+                        ServiceURL = AwsServiceUrl
+                    });
 
                 var tables = client.ListTablesAsync().Result;
                 

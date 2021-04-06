@@ -16,7 +16,7 @@ namespace Akka.Persistence.DynamoDb.Test
             return port;
         }
         
-        public static Config DynamoDbConfig(IDynamoDbFixture fixture)
+        public static Config DynamoDbConfig(LocalstackDynamoDbFixture fixture)
         {
             var testId = Guid.NewGuid().ToString().Replace("-", "");
             
@@ -36,7 +36,7 @@ akka {
             dynamodb {
                 class = ""Akka.Persistence.DynamoDb.Journal.DynamoDbJournal, Akka.Persistence.DynamoDb""
                 table-name = ""J" + testId + @"""
-                " + (!string.IsNullOrEmpty(fixture.AwsServiceUrl) ? $"aws-service-url = \"{fixture.AwsServiceUrl}\"" : "") + @"
+                aws-service-url = """ + fixture.AwsServiceUrl + @"""
                 auto-initialize = true
                 aws-access-key = ""access-key""
                 aws-secret-key = ""secret-key""
@@ -67,7 +67,7 @@ akka {
             dynamodb {
                 class = ""Akka.Persistence.DynamoDb.Snapshot.DynamoDbSnapshotStore, Akka.Persistence.DynamoDb""
                 table-name = ""S" + testId + @"""
-                " + (!string.IsNullOrEmpty(fixture.AwsServiceUrl) ? $"aws-service-url = \"{fixture.AwsServiceUrl}\"" : "") + @"
+                aws-service-url = """ + fixture.AwsServiceUrl + @"""
                 auto-initialize = true
                 aws-access-key = ""access-key""
                 aws-secret-key = ""secret-key""

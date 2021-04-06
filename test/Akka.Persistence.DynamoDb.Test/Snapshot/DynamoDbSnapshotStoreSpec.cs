@@ -6,7 +6,7 @@ namespace Akka.Persistence.DynamoDb.Test.Snapshot
     [Collection(DynamoDbTestCollection.Name)]
     public class DynamoDbSnapshotStoreSpec : SnapshotStoreSpec
     {
-        public DynamoDbSnapshotStoreSpec(DynamoDbTestCollection.Fixture fixture)
+        public DynamoDbSnapshotStoreSpec(LocalstackDynamoDbFixture fixture)
             : base(DynamoDbStorageConfigHelper.DynamoDbConfig(fixture))
         {
             DynamoDbPersistence.Get(Sys);
