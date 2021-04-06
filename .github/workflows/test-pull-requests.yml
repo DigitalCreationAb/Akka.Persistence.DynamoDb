@@ -18,7 +18,6 @@ jobs:
         env:
           SERVICES: dynamodb
           DEBUG: "1"
-          DOCKER_HOST: unix:///var/run/docker.sock
           HOSTNAME_EXTERNAL: localstack
         options: >-
           --name=localstack
@@ -30,4 +29,4 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Test
-      run: export AWS_DYNAMODB_URL=http://localstack:4566 && curl http://localstack:4566
+      run: export AWS_DYNAMODB_URL=http://localstack:4566 && dotnet test
