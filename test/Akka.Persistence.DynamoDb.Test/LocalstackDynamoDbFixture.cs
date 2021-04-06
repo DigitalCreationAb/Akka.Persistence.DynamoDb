@@ -14,6 +14,15 @@ namespace Akka.Persistence.DynamoDb.Test
             if (!string.IsNullOrEmpty(dynamodbUrl))
             {
                 AwsServiceUrl = dynamodbUrl;
+
+                var client = new AmazonDynamoDBClient(new AmazonDynamoDBConfig
+                {
+                    ServiceURL = AwsServiceUrl
+                });
+
+                var tables = client.ListTablesAsync().Result;
+                
+                Console.WriteLine($"Found {tables.TableNames.Count} tables already in db ({string.Join(", ", tables.TableNames)})");
                 
                 return;
             }
@@ -23,7 +32,7 @@ namespace Akka.Persistence.DynamoDb.Test
                 
             _localstackInstance = Docker.StartDynamoDbLocalstackContainer(mainPort, servicePort);
 
-            AwsServiceUrl = $"http://127.0.0.1:{servicePort}";
+            AwsServiceUrl = $"http://localhost:{servicePort}";
         }
 
         public string AwsServiceUrl { get; }
