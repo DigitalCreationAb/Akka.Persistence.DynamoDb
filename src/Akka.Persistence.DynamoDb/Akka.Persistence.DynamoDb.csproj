@@ -14,6 +14,7 @@
       https://github.com/DigitalCreationAb/Akka.Persistence.DynamoDb
     </PackageProjectUrl>
     <PackageTags>akka</PackageTags>
+    <PackageLicenseUrl>https://github.com/DigitalCreationAb/Akka.Persistence.DynamoDb/blob/master/LICENSE</PackageLicenseUrl>
   </PropertyGroup>
 
   <ItemGroup>
