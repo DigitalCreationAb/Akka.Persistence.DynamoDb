@@ -72,7 +72,7 @@ namespace Akka.Persistence.DynamoDb.Query
                 .Named("CurrentEventsByPersistenceId-" + persistenceId);
         }
 
-        public Source<EventEnvelope, NotUsed> EventsByTag(string tag, Offset offset = null)
+        public Source<EventEnvelope, NotUsed> EventsByTag(string tag, Offset? offset = null)
         {
             offset ??= new Sequence(0L);
 
@@ -93,7 +93,7 @@ namespace Akka.Persistence.DynamoDb.Query
             };
         }
 
-        public Source<EventEnvelope, NotUsed> CurrentEventsByTag(string tag, Offset offset = null)
+        public Source<EventEnvelope, NotUsed> CurrentEventsByTag(string tag, Offset? offset = null)
         {
             offset ??= new Sequence(0L);
 

@@ -6,7 +6,7 @@ namespace Akka.Persistence.DynamoDb.Test.Journal
     [Collection(DynamoDbTestCollection.Name)]
     public class DynamoDbJournalSpec : JournalSpec
     {
-        public DynamoDbJournalSpec(DynamoDbTestCollection.Fixture fixture)
+        public DynamoDbJournalSpec(LocalstackDynamoDbFixture fixture)
             : base(DynamoDbStorageConfigHelper.DynamoDbConfig(fixture))
         {
             DynamoDbPersistence.Get(Sys);

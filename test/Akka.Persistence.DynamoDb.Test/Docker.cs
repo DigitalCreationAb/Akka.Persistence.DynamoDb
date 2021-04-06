@@ -15,7 +15,7 @@ namespace Akka.Persistence.DynamoDb.Test
         {
             bool WaitForStart(TimeSpan timeout)
             {
-                Console.WriteLine("Waiting for localstack to start.");
+                Console.WriteLine($"Waiting for localstack to start. (main port: {mainPort}, services port: {servicesPort})");
 
                 var timer = Stopwatch.StartNew();
                 var httpClient = new HttpClient();
@@ -24,7 +24,7 @@ namespace Akka.Persistence.DynamoDb.Test
                 {
                     try
                     {
-                        var response = httpClient.GetAsync($"http://localhost:{mainPort}/health").Result;
+                        var response = httpClient.GetAsync($"http://127.0.0.1:{mainPort}/health").Result;
 
                         if (response.IsSuccessStatusCode)
                         {
@@ -33,6 +33,8 @@ namespace Akka.Persistence.DynamoDb.Test
                                                {
                                                    Services = ImmutableDictionary<string, string>.Empty
                                                };
+                            
+                            Console.WriteLine($"Polled localstack with result: {response.Content.ReadAsStringAsync().Result}");
 
                             if (responseData.Services.Any()
                                 && responseData.Services.ContainsKey("dynamodb") &&
@@ -44,11 +46,13 @@ namespace Akka.Persistence.DynamoDb.Test
                             }
                         }
 
-                        Thread.Sleep(TimeSpan.FromSeconds(1));
+                        Thread.Sleep(TimeSpan.FromSeconds(5));
                     }
-                    catch (Exception)
+                    catch (Exception exception)
                     {
-                        Thread.Sleep(TimeSpan.FromSeconds(1));
+                        Console.WriteLine($"Failed polling localstack: {exception.Message}");
+                        
+                        Thread.Sleep(TimeSpan.FromSeconds(5));
                     }
                 }
 
@@ -66,7 +70,7 @@ namespace Akka.Persistence.DynamoDb.Test
                 .EnvironmentVariable("DEBUG", "1")
                 .Run();
 
-            if (WaitForStart(TimeSpan.FromMinutes(1)))
+            if (WaitForStart(TimeSpan.FromMinutes(2)))
                 return runningContainer;
 
             runningContainer.Dispose();

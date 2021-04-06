@@ -18,19 +18,19 @@ namespace Akka.Persistence.DynamoDb.Journal
             _attributes = document.ToAttributeMap().ToImmutableDictionary();
         }
 
-        public string PersistenceId => GetStringValue(Keys.PersistenceId);
+        public string? PersistenceId => GetStringValue(Keys.PersistenceId);
 
         public long SequenceNumber => GetLongValue(Keys.SequenceNumber);
 
-        public string Manifest => GetStringValue(Keys.Manifest);
+        public string? Manifest => GetStringValue(Keys.Manifest);
 
-        public string WriterGuid => GetStringValue(Keys.WriterGuid);
+        public string? WriterGuid => GetStringValue(Keys.WriterGuid);
 
         public long Timestamp => GetLongValue(Keys.Timestamp);
 
         public long HighestSequenceNumber => GetLongValue(Keys.HighestSequenceNumber);
 
-        public Type Type => Type.GetType(GetStringValue(Keys.Type));
+        public Type? Type => Type.GetType(GetStringValue(Keys.Type) ?? "System.Object");
         
         public IPersistentRepresentation ToPersistent(ActorSystem system)
         {
@@ -115,7 +115,7 @@ namespace Akka.Persistence.DynamoDb.Journal
         
         public static string GetHighestSequenceNumberGroupKey(string persistenceId) => $"highestsequencenumber-{persistenceId}";
 
-        private string GetStringValue(string key)
+        private string? GetStringValue(string key)
         {
             return GetAttributeValue(key, item => item.S);
         }
@@ -125,7 +125,7 @@ namespace Akka.Persistence.DynamoDb.Journal
             return GetAttributeValue(key, item => long.TryParse(item.N, out var value) ? value : 0);
         }
         
-        private T GetAttributeValue<T>(string key, Func<AttributeValue, T> parse)
+        private T? GetAttributeValue<T>(string key, Func<AttributeValue, T> parse)
         {
             return _attributes.ContainsKey(key) ? parse(_attributes[key]) : default;
         }

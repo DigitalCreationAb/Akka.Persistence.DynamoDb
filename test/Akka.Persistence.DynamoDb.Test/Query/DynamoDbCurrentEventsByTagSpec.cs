@@ -8,7 +8,7 @@ namespace Akka.Persistence.DynamoDb.Test.Query
     [Collection(DynamoDbTestCollection.Name)]
     public class DynamoDbCurrentEventsByTagSpec : CurrentEventsByTagSpec
     {
-        public DynamoDbCurrentEventsByTagSpec(DynamoDbTestCollection.Fixture fixture)
+        public DynamoDbCurrentEventsByTagSpec(LocalstackDynamoDbFixture fixture)
             : base(DynamoDbStorageConfigHelper.DynamoDbConfig(fixture))
         {
             DynamoDbPersistence.Get(Sys);

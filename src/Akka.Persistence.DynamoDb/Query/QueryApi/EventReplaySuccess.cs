@@ -2,7 +2,7 @@ namespace Akka.Persistence.DynamoDb.Query.QueryApi
 {
     public record EventReplaySuccess(long HighestSequenceNr)
     {
-        public virtual bool Equals(EventReplaySuccess other)
+        public virtual bool Equals(EventReplaySuccess? other)
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;

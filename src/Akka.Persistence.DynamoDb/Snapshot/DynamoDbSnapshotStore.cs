@@ -29,9 +29,9 @@ namespace Akka.Persistence.DynamoDb.Snapshot
         private readonly DynamoDbSnapshotStoreSettings _settings;
         private readonly ILoggingAdapter _log = Context.GetLogger();
         
-        private Table _table;
+        private Table? _table;
 
-        public DynamoDbSnapshotStore(Config config = null)
+        public DynamoDbSnapshotStore(Config? config = null)
         {
             _actorSystem = Context.System;
             
@@ -57,9 +57,9 @@ namespace Akka.Persistence.DynamoDb.Snapshot
             BecomeStacked(WaitingForInitialization);
         }
         
-        public IStash Stash { get; set; }
+        public IStash? Stash { get; set; }
         
-        protected override async Task<SelectedSnapshot> LoadAsync(
+        protected override async Task<SelectedSnapshot?> LoadAsync(
             string persistenceId,
             SnapshotSelectionCriteria criteria)
         {
@@ -67,7 +67,7 @@ namespace Akka.Persistence.DynamoDb.Snapshot
             filter.AddCondition(SnapshotDocument.Keys.PersistenceId, QueryOperator.Equal, persistenceId);
             filter.AddCondition(SnapshotDocument.Keys.SequenceNumber, QueryOperator.Between, criteria.MinSequenceNr, criteria.MaxSequenceNr);
             
-            var search = _table.Query(new QueryOperationConfig
+            var search = _table!.Query(new QueryOperationConfig
             {
                 BackwardSearch = true,
                 CollectResults = false,
@@ -91,12 +91,12 @@ namespace Akka.Persistence.DynamoDb.Snapshot
 
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
-            await _table.PutItemAsync(SnapshotDocument.ToDocument(metadata, snapshot, _actorSystem));
+            await _table!.PutItemAsync(SnapshotDocument.ToDocument(metadata, snapshot, _actorSystem));
         }
 
         protected override async Task DeleteAsync(SnapshotMetadata metadata)
         {
-            var document = await _table.GetItemAsync(metadata.PersistenceId, metadata.SequenceNr);
+            var document = await _table!.GetItemAsync(metadata.PersistenceId, metadata.SequenceNr);
 
             await _table.DeleteItemAsync(document);
         }
@@ -107,7 +107,7 @@ namespace Akka.Persistence.DynamoDb.Snapshot
             filter.AddCondition(SnapshotDocument.Keys.PersistenceId, QueryOperator.Equal, persistenceId);
             filter.AddCondition(SnapshotDocument.Keys.SequenceNumber, QueryOperator.Between, criteria.MinSequenceNr, criteria.MaxSequenceNr);
 
-            var search = _table.Query(persistenceId, filter);
+            var search = _table!.Query(persistenceId, filter);
 
             while (!search.IsDone)
             {
@@ -165,14 +165,14 @@ namespace Akka.Persistence.DynamoDb.Snapshot
             .With<Events.Initialized>(_ =>
             {
                 UnbecomeStacked();
-                Stash.UnstashAll();
+                Stash?.UnstashAll();
             })
             .With<Failure>(failure =>
             {
                 _log.Error(failure.Exception, "Error during snapshot store initialization");
                 Context.Stop(Self);
             })
-            .Default(_ => Stash.Stash())
+            .Default(_ => Stash?.Stash())
             .WasHandled;
     }
 }
