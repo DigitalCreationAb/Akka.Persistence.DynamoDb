@@ -9,6 +9,15 @@ namespace Akka.Persistence.DynamoDb.Test
 
         protected LocalstackDynamoDbFixture()
         {
+            var dynamodbUrl = Environment.GetEnvironmentVariable("AWS_DYNAMODB_URL");
+
+            if (!string.IsNullOrEmpty(dynamodbUrl))
+            {
+                AwsServiceUrl = dynamodbUrl;
+                
+                return;
+            }
+        
             var mainPort = DynamoDbStorageConfigHelper.GetRandomUnusedPort();
             var servicePort = DynamoDbStorageConfigHelper.GetRandomUnusedPort();
                 
