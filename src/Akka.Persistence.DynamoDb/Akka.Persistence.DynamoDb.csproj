@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>9</LangVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -9,7 +9,7 @@
   <PropertyGroup>
     <Copyright>Copyright © 2021-2021 Digital Creation Sweden AB</Copyright>
     <Authors>Digital Creation</Authors>
-    <Version>0.1.2</Version>
+    <Version>0.2.0</Version>
     <PackageProjectUrl>
       https://github.com/DigitalCreationAb/Akka.Persistence.DynamoDb
     </PackageProjectUrl>
