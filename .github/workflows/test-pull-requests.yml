@@ -30,4 +30,4 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Test
-      run: export AWS_DYNAMODB_URL=http://localstack:4566 && make test
+      run: export AWS_DYNAMODB_URL=http://localstack:4566 && dotnet test
