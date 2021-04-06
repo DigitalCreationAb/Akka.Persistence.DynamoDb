@@ -8,7 +8,7 @@
 
   <PropertyGroup>
     <Copyright>Copyright © 2021-2021 Digital Creation Sweden AB</Copyright>
-    <Authors>Digital Creation</Authors>
+    <Authors>Mattias Jakobsson</Authors>
     <Version>0.2.0</Version>
     <PackageProjectUrl>
       https://github.com/DigitalCreationAb/Akka.Persistence.DynamoDb
