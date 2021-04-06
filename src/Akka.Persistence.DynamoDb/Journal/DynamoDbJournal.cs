@@ -317,7 +317,8 @@ namespace Akka.Persistence.DynamoDb.Journal
             var search = _table!.Query(new QueryOperationConfig
             {
                 Filter = filter,
-                IndexName = "ByTag"
+                IndexName = "ByTag",
+                Select = SelectValues.AllProjectedAttributes
             });
 
             var maxOrdering = 0L;
@@ -394,7 +395,8 @@ namespace Akka.Persistence.DynamoDb.Journal
             var search = _table!.Query(new QueryOperationConfig
             {
                 Filter = filter,
-                IndexName = "ByDocumentType"
+                IndexName = "ByDocumentType",
+                Select = SelectValues.AllProjectedAttributes
             });
             
             while (!search.IsDone)
