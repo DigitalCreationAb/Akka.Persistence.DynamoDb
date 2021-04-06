@@ -38,6 +38,8 @@ akka {
                 table-name = ""J" + testId + @"""
                 " + (!string.IsNullOrEmpty(fixture.AwsServiceUrl) ? $"aws-service-url = \"{fixture.AwsServiceUrl}\"" : "") + @"
                 auto-initialize = true
+                aws-access-key = ""access-key""
+                aws-secret-key = ""secret-key""
 
                 event-adapters {
                     color-tagger = ""Akka.Persistence.TCK.Query.ColorFruitTagger, Akka.Persistence.TCK""
@@ -67,6 +69,8 @@ akka {
                 table-name = ""S" + testId + @"""
                 " + (!string.IsNullOrEmpty(fixture.AwsServiceUrl) ? $"aws-service-url = \"{fixture.AwsServiceUrl}\"" : "") + @"
                 auto-initialize = true
+                aws-access-key = ""access-key""
+                aws-secret-key = ""secret-key""
             }
         }
     }

@@ -1,5 +1,6 @@
 using System;
 using Amazon.DynamoDBv2;
+using Amazon.Runtime;
 
 namespace Akka.Persistence.DynamoDb.Test
 {
@@ -15,7 +16,7 @@ namespace Akka.Persistence.DynamoDb.Test
             {
                 AwsServiceUrl = dynamodbUrl;
 
-                var client = new AmazonDynamoDBClient(new AmazonDynamoDBConfig
+                var client = new AmazonDynamoDBClient(new BasicAWSCredentials("access-key", "secret-key"), new AmazonDynamoDBConfig
                 {
                     ServiceURL = AwsServiceUrl
                 });
