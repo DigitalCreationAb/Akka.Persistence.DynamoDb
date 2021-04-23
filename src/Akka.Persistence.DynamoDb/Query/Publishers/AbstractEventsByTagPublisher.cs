@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 using Akka.Actor;
 using Akka.Event;
 using Akka.Persistence.DynamoDb.Query.QueryApi;
@@ -12,11 +16,15 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
 
         protected readonly DeliveryBuffer<EventEnvelope> Buffer;
         protected readonly IActorRef JournalRef;
+        private readonly IList<long> _replayed = new List<long>();
+        
+        private long _maxAssuredOffset;
         protected long CurrentOffset;
+        
         protected AbstractEventsByTagPublisher(string tag, long fromOffset, int maxBufferSize, string writeJournalPluginId)
         {
             Tag = tag;
-            CurrentOffset = FromOffset = fromOffset;
+            CurrentOffset = _maxAssuredOffset = FromOffset = fromOffset;
             MaxBufferSize = maxBufferSize;
             Buffer = new DeliveryBuffer<EventEnvelope>(OnNext);
             JournalRef = Persistence.Instance.Apply(Context.System).JournalFor(writeJournalPluginId);
@@ -26,9 +34,9 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
         protected string Tag { get; }
         protected long FromOffset { get; }
         protected abstract long ToOffset { get; }
-        protected int MaxBufferSize { get; }
+        private int MaxBufferSize { get; }
 
-        protected bool IsTimeForReplay => (Buffer.IsEmpty || Buffer.Length <= MaxBufferSize / 2) && (CurrentOffset <= ToOffset);
+        private bool IsTimeForReplay => (Buffer.IsEmpty || Buffer.Length <= MaxBufferSize / 2) && (CurrentOffset <= ToOffset);
 
         protected abstract void ReceiveInitialRequest();
         protected abstract void ReceiveIdleRequest();
@@ -36,6 +44,7 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
 
         protected override bool Receive(object message) => message.Match()
             .With<Request>(_ => ReceiveInitialRequest())
+            .With<GiveUpOnMissingItems>(giveUp => GiveUpOnMissingItems(giveUp.BeforeOffset))
             .With<EventsByTagPublisher.Continue>(() => { })
             .With<Cancel>(_ => Context.Stop(Self))
             .WasHandled;
@@ -47,6 +56,7 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
             .With<TaggedEventAppended>(() => {
                 if (IsTimeForReplay) Replay();
             })
+            .With<GiveUpOnMissingItems>(giveUp => GiveUpOnMissingItems(giveUp.BeforeOffset))
             .With<Request>(ReceiveIdleRequest)
             .With<Cancel>(() => Context.Stop(Self))
             .WasHandled;
@@ -56,13 +66,47 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
             var limit = MaxBufferSize - Buffer.Length;
             Log.Debug("request replay for tag [{0}] from [{1}] to [{2}] limit [{3}]", Tag, CurrentOffset, ToOffset, limit);
             JournalRef.Tell(new ReplayTaggedMessages(CurrentOffset, ToOffset, limit, Tag, Self));
+
+            if (_maxAssuredOffset < CurrentOffset)
+            {
+                JournalRef.Tell(new ReplayTaggedMessages(_maxAssuredOffset, CurrentOffset, int.MaxValue, Tag, Self));
+
+                Context
+                    .System
+                    .Scheduler
+                    .ScheduleTellOnce(
+                        TimeSpan.FromSeconds(10),
+                        Self, 
+                        new GiveUpOnMissingItems(CurrentOffset),
+                        ActorRefs.NoSender);
+            }
+
             Context.Become(Replaying());
         }
 
-        protected Receive Replaying()
+        private void GiveUpOnMissingItems(long until)
+        {
+            if (until <= _maxAssuredOffset) return;
+            
+            JournalRef.Tell(new ReplayTaggedMessages(_maxAssuredOffset, until, int.MaxValue, Tag, Self));
+
+            _maxAssuredOffset = until;
+
+            var oldReplayed = _replayed.Where(x => x < until).ToImmutableList();
+
+            foreach (var item in oldReplayed)
+                _replayed.Remove(item);
+            
+            Context.Become(Replaying());
+        }
+
+        private Receive Replaying()
         {
             return message => message.Match()
                 .With<ReplayedTaggedMessage>(replayed => {
+                    if (_replayed.Contains(replayed.Offset))
+                        return;
+                    
                     Buffer.Add(new EventEnvelope(
                         offset: new Sequence(replayed.Offset),
                         persistenceId: replayed.Persistent.PersistenceId,
@@ -70,9 +114,15 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
                         timestamp: replayed.Persistent.Timestamp,
                         @event: replayed.Persistent.Payload));
 
-                    CurrentOffset = replayed.Offset;
                     Buffer.DeliverBuffer(TotalDemand);
+
+                    if (replayed.Offset > CurrentOffset)
+                        CurrentOffset = replayed.Offset;
+
+                    if (replayed.Offset > _maxAssuredOffset)
+                        _replayed.Add(replayed.Offset);
                 })
+                .With<GiveUpOnMissingItems>(giveUp => GiveUpOnMissingItems(giveUp.BeforeOffset))
                 .With<RecoverySuccess>(success => {
                     Log.Debug("replay completed for tag [{0}], currOffset [{1}]", Tag, CurrentOffset);
                     ReceiveRecoverySuccess(success.HighestSequenceNr);
