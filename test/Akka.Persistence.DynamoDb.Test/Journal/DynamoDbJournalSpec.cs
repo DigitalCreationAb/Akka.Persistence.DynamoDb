@@ -14,5 +14,7 @@ namespace Akka.Persistence.DynamoDb.Test.Journal
         }
 
         protected override bool SupportsSerialization { get; } = false;
+
+        protected override bool SupportsRejectingNonSerializableObjects { get; } = false;
     }
 }
