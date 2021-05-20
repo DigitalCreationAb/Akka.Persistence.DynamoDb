@@ -9,7 +9,7 @@
   <PropertyGroup>
     <Copyright>Copyright © 2021-2021 Digital Creation Sweden AB</Copyright>
     <Authors>Mattias Jakobsson</Authors>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <PackageProjectUrl>
       https://github.com/DigitalCreationAb/Akka.Persistence.DynamoDb
     </PackageProjectUrl>
@@ -18,8 +18,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Akka.Persistence.Query" Version="1.4.18" />
-    <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.0.8" />
+    <PackageReference Include="Akka.Persistence.Query" Version="1.4.20" />
+    <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.0.24" />
   </ItemGroup>
 
   <ItemGroup>
