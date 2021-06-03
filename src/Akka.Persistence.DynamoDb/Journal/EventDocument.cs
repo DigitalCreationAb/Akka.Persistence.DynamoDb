@@ -78,7 +78,7 @@ namespace Akka.Persistence.DynamoDb.Journal
                     [Keys.Manifest] = item.Manifest,
                     [Keys.WriterGuid] = item.WriterGuid,
                     [Keys.Timestamp] = timestamp,
-                    [Keys.Type] = type.AssemblyQualifiedName,
+                    [Keys.Type] = $"{type.FullName}, {type.Assembly.GetName().Name}",
                     [Keys.Payload] = payload,
                     [Keys.DocumentType] = DocumentTypes.Event
                 })
