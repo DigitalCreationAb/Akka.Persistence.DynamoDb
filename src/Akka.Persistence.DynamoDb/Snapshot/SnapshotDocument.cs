@@ -46,7 +46,7 @@ namespace Akka.Persistence.DynamoDb.Snapshot
                 [Keys.PersistenceId] = metadata.PersistenceId,
                 [Keys.SequenceNumber] = metadata.SequenceNr,
                 [Keys.Timestamp] = metadata.Timestamp.Ticks,
-                [Keys.Type] = type.FullName,
+                [Keys.Type] = $"{type.FullName}, {type.Assembly.GetName().Name}",
                 [Keys.Payload] = payload
             });
         }
