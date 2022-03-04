@@ -82,8 +82,6 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
 
             foreach (var item in oldReplayed)
                 _replayed.Remove(item);
-            
-            Context.Become(Replaying());
         }
 
         private Receive Replaying()
