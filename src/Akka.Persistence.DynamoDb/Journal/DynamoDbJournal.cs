@@ -287,7 +287,7 @@ namespace Akka.Persistence.DynamoDb.Journal
                     ReplayTaggedMessagesAsync(replay)
                         .PipeTo(replay.ReplyTo, success: h => new RecoverySuccess(h), failure: e => new ReplayMessagesFailure(e));
                     break;
-                case SubscribeAllPersistenceIds _:
+                case SubscribeAllPersistenceIds:
                     AddAllPersistenceIdSubscriber(Sender).PipeTo(Sender);
                     Context.Watch(Sender);
                     break;

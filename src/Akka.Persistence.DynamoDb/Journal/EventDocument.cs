@@ -39,7 +39,7 @@ namespace Akka.Persistence.DynamoDb.Journal
             var payload = serializer.FromBinary(GetAttributeValue(Keys.Payload, item => item.B.ToArray()), Type);
 
             return new Persistent(
-                payload,
+                payload ?? new object(),
                 SequenceNumber,
                 PersistenceId,
                 Manifest,

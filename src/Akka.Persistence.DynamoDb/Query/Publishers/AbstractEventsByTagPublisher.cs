@@ -88,8 +88,6 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
         {
             if (until <= _maxAssuredOffset) return;
             
-            JournalRef.Tell(new ReplayTaggedMessages(_maxAssuredOffset, until, int.MaxValue, Tag, Self));
-
             _maxAssuredOffset = until;
 
             var oldReplayed = _replayed.Where(x => x < until).ToImmutableList();
