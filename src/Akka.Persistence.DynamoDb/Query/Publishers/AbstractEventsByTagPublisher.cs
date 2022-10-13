@@ -64,10 +64,11 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
         {
             var limit = MaxBufferSize - Buffer.Length;
             Log.Debug("request replay for tag [{0}] from [{1}] to [{2}] limit [{3}]", Tag, CurrentOffset, ToOffset, limit);
-            JournalRef.Tell(new ReplayTaggedMessages(CurrentOffset, ToOffset, limit, Tag, Self, false));
-
+            
             if (_maxAssuredOffset < CurrentOffset)
                 JournalRef.Tell(new ReplayTaggedMessages(_maxAssuredOffset, CurrentOffset, int.MaxValue, Tag, Self, true));
+            
+            JournalRef.Tell(new ReplayTaggedMessages(CurrentOffset, ToOffset, limit, Tag, Self, false));
 
             Context.Become(Replaying());
         }
