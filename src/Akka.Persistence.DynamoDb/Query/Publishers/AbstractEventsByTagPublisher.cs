@@ -1,11 +1,11 @@
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
 using Akka.Actor;
 using Akka.Event;
 using Akka.Persistence.DynamoDb.Query.QueryApi;
 using Akka.Persistence.Query;
 using Akka.Streams.Actors;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 
 namespace Akka.Persistence.DynamoDb.Query.Publishers
 {
@@ -16,10 +16,10 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
         protected readonly DeliveryBuffer<EventEnvelope> Buffer;
         protected readonly IActorRef JournalRef;
         private readonly IList<long> _replayed = new List<long>();
-        
+
         private long _maxAssuredOffset;
         protected long CurrentOffset;
-        
+
         protected AbstractEventsByTagPublisher(string tag, long fromOffset, int maxBufferSize, string writeJournalPluginId)
         {
             Tag = tag;
@@ -41,33 +41,64 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
         protected abstract void ReceiveIdleRequest();
         protected abstract void ReceiveRecoverySuccess(long highestSequenceNr);
 
-        protected override bool Receive(object message) => message.Match()
-            .With<Request>(_ => ReceiveInitialRequest())
-            .With<TagCatchupFinished>(giveUp => GiveUpOnMissingItems(giveUp.HighestSequenceNr))
-            .With<EventsByTagPublisher.Continue>(() => { })
-            .With<Cancel>(_ => Context.Stop(Self))
-            .WasHandled;
+        protected override bool Receive(object message)
+        {
+            switch (message)
+            {
+                case Request:
+                    ReceiveInitialRequest();
+                    return true;
 
-        protected bool Idle(object message) => message.Match()
-            .With<EventsByTagPublisher.Continue>(() => {
-                if (IsTimeForReplay) Replay();
-            })
-            .With<TaggedEventAppended>(() => {
-                if (IsTimeForReplay) Replay();
-            })
-            .With<TagCatchupFinished>(giveUp => GiveUpOnMissingItems(giveUp.HighestSequenceNr))
-            .With<Request>(ReceiveIdleRequest)
-            .With<Cancel>(() => Context.Stop(Self))
-            .WasHandled;
+                case TagCatchupFinished giveUp:
+                    GiveUpOnMissingItems(giveUp.HighestSequenceNr);
+                    return true;
+
+                case EventsByTagPublisher.Continue:
+                    return true;
+
+                case Cancel:
+                    Context.Stop(Self);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        protected bool Idle(object message)
+        {
+            switch (message)
+            {
+                case EventsByTagPublisher.Continue:
+                case TaggedEventAppended:
+                    if (IsTimeForReplay) Replay();
+                    return true;
+
+                case TagCatchupFinished giveUp:
+                    GiveUpOnMissingItems(giveUp.HighestSequenceNr);
+                    return true;
+
+                case Request:
+                    ReceiveIdleRequest();
+                    return true;
+
+                case Cancel:
+                    Context.Stop(Self);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
 
         protected void Replay()
         {
             var limit = MaxBufferSize - Buffer.Length;
             Log.Debug("request replay for tag [{0}] from [{1}] to [{2}] limit [{3}]", Tag, CurrentOffset, ToOffset, limit);
-            
+
             if (_maxAssuredOffset < CurrentOffset)
                 JournalRef.Tell(new ReplayTaggedMessages(_maxAssuredOffset, CurrentOffset, int.MaxValue, Tag, Self, true));
-            
+
             JournalRef.Tell(new ReplayTaggedMessages(CurrentOffset, ToOffset, limit, Tag, Self, false));
 
             Context.Become(Replaying());
@@ -76,7 +107,7 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
         private void GiveUpOnMissingItems(long until)
         {
             if (until <= _maxAssuredOffset) return;
-            
+
             _maxAssuredOffset = until;
 
             var oldReplayed = _replayed.Where(x => x < until).ToImmutableList();
@@ -85,13 +116,17 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
                 _replayed.Remove(item);
         }
 
-        private Receive Replaying()
+        private Receive Replaying() => message =>
         {
-            return message => message.Match()
-                .With<ReplayedTaggedMessage>(replayed => {
+            switch (message)
+            {
+                case ReplayedTaggedMessage replayed:
+
                     if (_replayed.Contains(replayed.Offset))
-                        return;
-                    
+                    {
+                        return true;
+                    }
+
                     Buffer.Add(new EventEnvelope(
                         offset: new Sequence(replayed.Offset),
                         persistenceId: replayed.Persistent.PersistenceId,
@@ -102,26 +137,47 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
                     Buffer.DeliverBuffer(TotalDemand);
 
                     if (replayed.Offset > CurrentOffset)
+                    {
                         CurrentOffset = replayed.Offset;
+                    }
 
                     if (replayed.Offset > _maxAssuredOffset)
+                    {
                         _replayed.Add(replayed.Offset);
-                })
-                .With<TagCatchupFinished>(giveUp => GiveUpOnMissingItems(giveUp.HighestSequenceNr))
-                .With<RecoverySuccess>(success => {
+                    }
+
+                    return true;
+
+                case TagCatchupFinished giveUp:
+                    GiveUpOnMissingItems(giveUp.HighestSequenceNr);
+                    return true;
+
+                case RecoverySuccess success:
                     Log.Debug("replay completed for tag [{0}], currOffset [{1}]", Tag, CurrentOffset);
                     ReceiveRecoverySuccess(success.HighestSequenceNr);
-                })
-                .With<ReplayMessagesFailure>(failure => {
+                    return true;
+
+                case ReplayMessagesFailure failure:
                     Log.Debug("replay failed for tag [{0}], due to [{1}]", Tag, failure.Cause.Message);
                     Buffer.DeliverBuffer(TotalDemand);
                     OnErrorThenStop(failure.Cause);
-                })
-                .With<Request>(_ => Buffer.DeliverBuffer(TotalDemand))
-                .With<EventsByTagPublisher.Continue>(() => { })
-                .With<TaggedEventAppended>(() => { })
-                .With<Cancel>(() => Context.Stop(Self))
-                .WasHandled;
-        }
+                    return true;
+
+                case Request:
+                    Buffer.DeliverBuffer(TotalDemand);
+                    return true;
+
+                case EventsByTagPublisher.Continue:
+                case TaggedEventAppended:
+                    return true;
+
+                case Cancel:
+                    Context.Stop(Self);
+                    return true;
+
+                default:
+                    return false;
+            }
+        };
     }
 }

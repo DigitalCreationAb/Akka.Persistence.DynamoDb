@@ -49,25 +49,44 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
 
         protected bool Init(object message)
         {
-            return message.Match()
-                .With<EventsByPersistenceIdPublisher.Continue>(() => { })
-                .With<Request>(_ => ReceiveInitialRequest())
-                .With<Cancel>(_ => Context.Stop(Self))
-                .WasHandled;
+            switch (message)
+            {
+                case EventsByPersistenceIdPublisher.Continue:
+                    return true;
+
+                case Request:
+                    ReceiveInitialRequest();
+                    return true;
+
+                case Cancel:
+                    Context.Stop(Self);
+                    return true;
+
+                default:
+                    return false;
+            }
         }
 
         protected bool Idle(object message)
         {
-            return message.Match()
-                .With<EventsByPersistenceIdPublisher.Continue>(() => {
+            switch (message)
+            {
+                case EventsByPersistenceIdPublisher.Continue:
+                case EventAppended:
                     if (IsTimeForReplay) Replay();
-                })
-                .With<EventAppended>(() => {
-                    if (IsTimeForReplay) Replay();
-                })
-                .With<Request>(_ => ReceiveIdleRequest())
-                .With<Cancel>(_ => Context.Stop(Self))
-                .WasHandled;
+                    return true;
+
+                case Request:
+                    ReceiveIdleRequest();
+                    return true;
+
+                case Cancel:
+                    Context.Stop(Self);
+                    return true;
+
+                default:
+                    return false;
+            }
         }
 
         protected void Replay()
@@ -78,34 +97,50 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
             Context.Become(Replaying());
         }
 
-        protected Receive Replaying()
+        protected Receive Replaying() => message =>
         {
-            return message => message.Match()
-                .With<ReplayedMessage>(replayed => {
+            switch (message)
+            {
+                case ReplayedMessage replayed:
                     var seqNr = replayed.Persistent.SequenceNr;
+
                     Buffer.Add(new EventEnvelope(
                         offset: new Sequence(seqNr),
                         persistenceId: PersistenceId,
                         sequenceNr: seqNr,
                         @event: replayed.Persistent.Payload,
                         timestamp: replayed.Persistent.Timestamp));
+
                     CurrentSequenceNr = seqNr + 1;
                     Buffer.DeliverBuffer(TotalDemand);
-                })
-                .With<RecoverySuccess>(success => {
+                    return true;
+
+                case RecoverySuccess success:
                     Log.Debug("replay completed for persistenceId [{0}], currSeqNo [{1}]", PersistenceId, CurrentSequenceNr);
                     ReceiveRecoverySuccess(success.HighestSequenceNr);
-                })
-                .With<ReplayMessagesFailure>(failure => {
+                    return true;
+
+                case ReplayMessagesFailure failure:
                     Log.Debug("replay failed for persistenceId [{0}], due to [{1}]", PersistenceId, failure.Cause.Message);
                     Buffer.DeliverBuffer(TotalDemand);
                     OnErrorThenStop(failure.Cause);
-                })
-                .With<Request>(_ => Buffer.DeliverBuffer(TotalDemand))
-                .With<EventsByPersistenceIdPublisher.Continue>(() => { })
-                .With<EventAppended>(() => { })
-                .With<Cancel>(_ => Context.Stop(Self))
-                .WasHandled;
-        }
+                    return true;
+
+                case Request:
+                    Buffer.DeliverBuffer(TotalDemand);
+                    return true;
+
+                case EventsByPersistenceIdPublisher.Continue:
+                case EventAppended:
+                    return true;
+
+                case Cancel:
+                    Context.Stop(Self);
+                    return true;
+
+                default:
+                    return false;
+            }
+        };
     }
 }

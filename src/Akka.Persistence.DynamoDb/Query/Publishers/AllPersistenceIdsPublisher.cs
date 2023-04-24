@@ -24,39 +24,72 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
             _journalRef = Persistence.Instance.Apply(Context.System).JournalFor(writeJournalPluginId);
         }
 
-        protected override bool Receive(object message) => message.Match()
-            .With<Request>(_ => {
-                _journalRef.Tell(SubscribeAllPersistenceIds.Instance);
-                Become(Active);
-            })
-            .With<Cancel>(_ => Context.Stop(Self))
-            .WasHandled;
-
-        private bool Active(object message) => message.Match()
-            .With<CurrentPersistenceIdsChunk>(current => {
-                _buffer.AddRange(current.PersistenceIds);
-                _buffer.DeliverBuffer(TotalDemand);
-
-                _replayFinished = current.LastChunk;
-
-                if (!_liveQuery && _replayFinished && _buffer.IsEmpty)
-                    OnCompleteThenStop();
-            })
-            .With<PersistenceIdAdded>(added =>
+        protected override bool Receive(object message)
+        {
+            switch (message)
             {
-                if (!_liveQuery) 
-                    return;
-                
-                _buffer.Add(added.PersistenceId);
-                _buffer.DeliverBuffer(TotalDemand);
-            })
-            .With<Request>(_ => {
-                _buffer.DeliverBuffer(TotalDemand);
-                
-                if (!_liveQuery && _replayFinished && _buffer.IsEmpty)
-                    OnCompleteThenStop();
-            })
-            .With<Cancel>(_ => Context.Stop(Self))
-            .WasHandled;
+                case Request:
+                    _journalRef.Tell(SubscribeAllPersistenceIds.Instance);
+                    Become(Active);
+                    return true;
+
+                case Cancel:
+                    Context.Stop(Self);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private bool Active(object message)
+        {
+            switch (message)
+            {
+                case CurrentPersistenceIdsChunk current:
+
+                    _buffer.AddRange(current.PersistenceIds);
+                    _buffer.DeliverBuffer(TotalDemand);
+
+                    _replayFinished = current.LastChunk;
+
+                    if (!_liveQuery && _replayFinished && _buffer.IsEmpty)
+                    {
+                        OnCompleteThenStop();
+                    }
+
+                    return true;
+
+                case PersistenceIdAdded added:
+
+                    if (!_liveQuery)
+                    {
+                        return true;
+                    }
+
+                    _buffer.Add(added.PersistenceId);
+                    _buffer.DeliverBuffer(TotalDemand);
+
+                    return true;
+
+                case Request:
+
+                    _buffer.DeliverBuffer(TotalDemand);
+
+                    if (!_liveQuery && _replayFinished && _buffer.IsEmpty)
+                    {
+                        OnCompleteThenStop();
+                    }
+
+                    return true;
+
+                case Cancel:
+                    Context.Stop(Self);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
     }
 }

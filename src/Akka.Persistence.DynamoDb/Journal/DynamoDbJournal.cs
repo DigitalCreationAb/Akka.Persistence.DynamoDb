@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
-using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Configuration;
 using Akka.Event;
@@ -12,6 +7,11 @@ using Akka.Util.Internal;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Akka.Persistence.DynamoDb.Journal
 {
@@ -25,30 +25,30 @@ namespace Akka.Persistence.DynamoDb.Journal
                 private Initialized() { }
             }
         }
-        
+
         private readonly ActorSystem _actorSystem;
         private readonly AmazonDynamoDBClient _client;
         private readonly DynamoDbJournalSettings _settings;
         private readonly ILoggingAdapter _log = Context.GetLogger();
-        
+
         private readonly Dictionary<string, ISet<IActorRef>> _tagSubscribers = new();
         private readonly HashSet<IActorRef> _allPersistenceIdSubscribers = new();
 
         private Table? _table;
-        
+
         public DynamoDbJournal(Config? config = null)
         {
             _actorSystem = Context.System;
-            
-            _settings = config is null ? 
+
+            _settings = config is null ?
                 DynamoDbPersistence.Get(Context.System).JournalSettings :
                 DynamoDbJournalSettings.Create(config);
 
             _client = DynamoDbSetup.InitClient(_settings);
         }
-        
+
         public IStash? Stash { get; set; }
-        
+
         protected override void PreStart()
         {
             base.PreStart();
@@ -56,14 +56,14 @@ namespace Akka.Persistence.DynamoDb.Journal
             if (!_settings.AutoInitialize)
             {
                 _table = Table.LoadTable(_client, _settings.TableName);
-                
+
                 return;
             }
-            
+
             Initialize().PipeTo(Self);
             BecomeStacked(WaitingForInitialization);
         }
-        
+
         public override async Task ReplayMessagesAsync(
             IActorContext context,
             string persistenceId,
@@ -77,12 +77,12 @@ namespace Akka.Persistence.DynamoDb.Journal
             var search = _table!.Query(EventDocument.GetEventGroupKey(persistenceId), filter);
 
             var returnedItems = 0L;
-            
+
             while (!search.IsDone)
             {
                 if (returnedItems >= max)
                     break;
-                
+
                 var items = await search.GetNextSetAsync();
 
                 foreach (var item in items)
@@ -93,7 +93,7 @@ namespace Akka.Persistence.DynamoDb.Journal
                     var eventDocument = new EventDocument(item);
 
                     recoveryCallback(eventDocument.ToPersistent(_actorSystem));
-                    
+
                     returnedItems++;
                 }
             }
@@ -109,7 +109,7 @@ namespace Akka.Persistence.DynamoDb.Journal
             var eventDocument = item != null ? new EventDocument(item) : null;
 
             var sequenceNumber = eventDocument?.HighestSequenceNumber ?? 0;
-            
+
             if (sequenceNumber <= 0)
                 NotifyNewPersistenceIdAdded(persistenceId);
 
@@ -134,9 +134,9 @@ namespace Akka.Persistence.DynamoDb.Journal
                     {
                         if (persistentRepresentation.SequenceNr == 0)
                             NotifyNewPersistenceIdAdded(persistentRepresentation.PersistenceId);
-                        
+
                         var (documents, tags) = EventDocument.ToDocument(persistentRepresentation, _actorSystem);
-                        
+
                         allTags.AddRange(tags);
 
                         foreach (var document in documents)
@@ -159,7 +159,7 @@ namespace Akka.Persistence.DynamoDb.Journal
                     }
 
                     await batch.ExecuteAsync();
-                    
+
                     results.Add(null);
                 }
                 catch (Exception exception)
@@ -169,7 +169,7 @@ namespace Akka.Persistence.DynamoDb.Journal
             }
 
             var documentTags = allTags.Distinct().ToImmutableList();
-            
+
             if (_tagSubscribers.Any() && documentTags.Any())
             {
                 foreach (var tag in documentTags)
@@ -197,7 +197,7 @@ namespace Akka.Persistence.DynamoDb.Journal
                 await batch.ExecuteAsync();
             }
         }
-        
+
         private async Task<object> Initialize()
         {
             try
@@ -219,18 +219,18 @@ namespace Akka.Persistence.DynamoDb.Journal
                         new(EventDocument.Keys.SequenceNumber, KeyType.RANGE)
                     }.ToImmutableList(),
                     ImmutableList.Create(new GlobalSecondaryIndex
-                        {
-                            IndexName = "ByDocumentType",
-                            KeySchema = new List<KeySchemaElement>
+                    {
+                        IndexName = "ByDocumentType",
+                        KeySchema = new List<KeySchemaElement>
                             {
                                 new(EventDocument.Keys.DocumentType, KeyType.HASH),
                                 new(EventDocument.Keys.PersistenceId, KeyType.RANGE)
                             },
-                            Projection = new Projection
-                            {
-                                ProjectionType = ProjectionType.KEYS_ONLY
-                            }
-                        },
+                        Projection = new Projection
+                        {
+                            ProjectionType = ProjectionType.KEYS_ONLY
+                        }
+                    },
                         new GlobalSecondaryIndex
                         {
                             IndexName = "ByTag",
@@ -257,28 +257,37 @@ namespace Akka.Persistence.DynamoDb.Journal
             catch (Exception e)
             {
                 _log.Error(e, "Failed to initialize table");
-                
-                return new Failure
-                {
-                    Exception = e
-                };
+
+                return new Status.Failure(e);
             }
         }
-        
-        private bool WaitingForInitialization(object message) => message.Match()
-            .With<Events.Initialized>(_ =>
+
+        private bool WaitingForInitialization(object message)
+        {
+            switch (message)
             {
-                UnbecomeStacked();
-                Stash?.UnstashAll();
-            })
-            .With<Failure>(failure =>
-            {
-                _log.Error(failure.Exception, "Error during journal initialization");
-                Context.Stop(Self);
-            })
-            .Default(_ => Stash?.Stash())
-            .WasHandled;
-        
+                case Events.Initialized:
+                    UnbecomeStacked();
+                    Stash?.UnstashAll();
+                    return true;
+
+                case Status.Failure failure:
+                    _log.Error(failure.Cause, "Error during journal initialization");
+                    Context.Stop(Self);
+                    return true;
+
+                //TODO: Remove once the obsolete Failure is removed
+                case Failure failure:
+                    _log.Error(failure.Exception, "Error during journal initialization");
+                    Context.Stop(Self);
+                    return true;
+
+                default:
+                    Stash?.Stash();
+                    return true;
+            }
+        }
+
         protected override bool ReceivePluginInternal(object message)
         {
             switch (message)
@@ -309,7 +318,7 @@ namespace Akka.Persistence.DynamoDb.Journal
         {
             if (replay.FromOffset >= replay.ToOffset)
                 return 0;
-            
+
             var filter = new QueryFilter();
             filter.AddCondition(EventDocument.Keys.Tag, QueryOperator.Equal, replay.Tag);
             filter.AddCondition(EventDocument.Keys.Timestamp, QueryOperator.Between, replay.FromOffset + 1, replay.ToOffset);
@@ -343,7 +352,7 @@ namespace Akka.Persistence.DynamoDb.Journal
                 {
                     if (replayedItems >= replay.Max)
                         return maxOrdering;
-                    
+
                     _log.Debug("Sending replayed message: persistenceId:{0} - sequenceNr:{1}",
                         result.PersistenceId, result.SequenceNumber);
 
@@ -352,16 +361,16 @@ namespace Akka.Persistence.DynamoDb.Journal
                             replay.Tag,
                             result.Timestamp),
                         ActorRefs.NoSender);
-                    
+
                     maxOrdering = Math.Max(maxOrdering, result.Timestamp);
-                    
+
                     replayedItems++;
                 }
             }
 
             return maxOrdering;
         }
-        
+
         private void AddTagSubscriber(IActorRef subscriber, string tag)
         {
             if (!_tagSubscribers.TryGetValue(tag, out var subscriptions))
@@ -372,24 +381,24 @@ namespace Akka.Persistence.DynamoDb.Journal
 
             subscriptions.Add(subscriber);
         }
-        
+
         private void RemoveSubscriber(IActorRef subscriber)
         {
             var tagSubscriptions = _tagSubscribers.Values.Where(x => x.Contains(subscriber));
-            
+
             foreach (var subscription in tagSubscriptions)
                 subscription.Remove(subscriber);
 
             _allPersistenceIdSubscribers.Remove(subscriber);
         }
-        
+
         private async Task AddAllPersistenceIdSubscriber(IActorRef subscriber)
         {
             lock (_allPersistenceIdSubscribers)
             {
                 _allPersistenceIdSubscribers.Add(subscriber);
             }
-            
+
             var filter = new QueryFilter(EventDocument.Keys.DocumentType, QueryOperator.Equal, EventDocument.DocumentTypes.HighestSequenceNumber);
 
             var search = _table!.Query(new QueryOperationConfig
@@ -398,7 +407,7 @@ namespace Akka.Persistence.DynamoDb.Journal
                 IndexName = "ByDocumentType",
                 Select = SelectValues.AllProjectedAttributes
             });
-            
+
             while (!search.IsDone)
             {
                 var persistenceIds = (await search.GetNextSetAsync())
@@ -406,26 +415,26 @@ namespace Akka.Persistence.DynamoDb.Journal
                     .Select(x => x.PersistenceId ?? "")
                     .Where(x => !string.IsNullOrEmpty(x))
                     .ToImmutableList();
-                
+
                 subscriber.Tell(new CurrentPersistenceIdsChunk(persistenceIds, search.IsDone));
             }
         }
-        
+
         private void NotifyTagChange(string tag)
         {
-            if (!_tagSubscribers.TryGetValue(tag, out var subscribers)) 
+            if (!_tagSubscribers.TryGetValue(tag, out var subscribers))
                 return;
-            
+
             var changed = new TaggedEventAppended(tag);
-            
+
             foreach (var subscriber in subscribers)
                 subscriber.Tell(changed);
         }
-        
+
         private void NotifyNewPersistenceIdAdded(string persistenceId)
         {
             var added = new PersistenceIdAdded(persistenceId);
-            
+
             foreach (var subscriber in _allPersistenceIdSubscribers)
                 subscriber.Tell(added);
         }
