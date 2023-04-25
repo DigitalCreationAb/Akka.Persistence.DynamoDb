@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
-using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Configuration;
 using Akka.Event;
@@ -10,6 +5,11 @@ using Akka.Persistence.Snapshot;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Akka.Persistence.DynamoDb.Snapshot
 {
@@ -23,25 +23,25 @@ namespace Akka.Persistence.DynamoDb.Snapshot
                 private Initialized() { }
             }
         }
-        
+
         private readonly ActorSystem _actorSystem;
         private readonly AmazonDynamoDBClient _client;
         private readonly DynamoDbSnapshotStoreSettings _settings;
         private readonly ILoggingAdapter _log = Context.GetLogger();
-        
+
         private Table? _table;
 
         public DynamoDbSnapshotStore(Config? config = null)
         {
             _actorSystem = Context.System;
-            
-            _settings = config is null ? 
+
+            _settings = config is null ?
                 DynamoDbPersistence.Get(Context.System).SnapshotSettings :
                 DynamoDbSnapshotStoreSettings.Create(config);
 
             _client = DynamoDbSetup.InitClient(_settings);
         }
-        
+
         protected override void PreStart()
         {
             base.PreStart();
@@ -49,16 +49,16 @@ namespace Akka.Persistence.DynamoDb.Snapshot
             if (!_settings.AutoInitialize)
             {
                 _table = Table.LoadTable(_client, _settings.TableName);
-                
+
                 return;
             }
-            
+
             Initialize().PipeTo(Self);
             BecomeStacked(WaitingForInitialization);
         }
-        
+
         public IStash? Stash { get; set; }
-        
+
         protected override async Task<SelectedSnapshot?> LoadAsync(
             string persistenceId,
             SnapshotSelectionCriteria criteria)
@@ -66,7 +66,7 @@ namespace Akka.Persistence.DynamoDb.Snapshot
             var filter = new QueryFilter();
             filter.AddCondition(SnapshotDocument.Keys.PersistenceId, QueryOperator.Equal, persistenceId);
             filter.AddCondition(SnapshotDocument.Keys.SequenceNumber, QueryOperator.Between, criteria.MinSequenceNr, criteria.MaxSequenceNr);
-            
+
             var search = _table!.Query(new QueryOperationConfig
             {
                 BackwardSearch = true,
@@ -79,7 +79,7 @@ namespace Akka.Persistence.DynamoDb.Snapshot
             {
                 var document = (await search.GetNextSetAsync())
                     .Select(x => new SnapshotDocument(x))
-                    .FirstOrDefault(x => x.Timestamp >= (criteria.MinTimestamp ?? DateTime.MinValue).Ticks && 
+                    .FirstOrDefault(x => x.Timestamp >= (criteria.MinTimestamp ?? DateTime.MinValue).Ticks &&
                                          x.Timestamp <= criteria.MaxTimeStamp.Ticks);
 
                 if (document != null)
@@ -129,7 +129,7 @@ namespace Akka.Persistence.DynamoDb.Snapshot
                 await batch.ExecuteAsync();
             }
         }
-        
+
         private async Task<object> Initialize()
         {
             try
@@ -154,25 +154,34 @@ namespace Akka.Persistence.DynamoDb.Snapshot
             }
             catch (Exception e)
             {
-                return new Failure
-                {
-                    Exception = e
-                };
+                return new Status.Failure(e);
             }
         }
-        
-        private bool WaitingForInitialization(object message) => message.Match()
-            .With<Events.Initialized>(_ =>
+
+        private bool WaitingForInitialization(object message)
+        {
+            switch (message)
             {
-                UnbecomeStacked();
-                Stash?.UnstashAll();
-            })
-            .With<Failure>(failure =>
-            {
-                _log.Error(failure.Exception, "Error during snapshot store initialization");
-                Context.Stop(Self);
-            })
-            .Default(_ => Stash?.Stash())
-            .WasHandled;
+                case Events.Initialized:
+                    UnbecomeStacked();
+                    Stash?.UnstashAll();
+                    return true;
+
+                case Status.Failure failure:
+                    _log.Error(failure.Cause, "Error during snapshot store initialization");
+                    Context.Stop(Self);
+                    return true;
+
+                //TODO: Remove once the obsolete Failure is removed
+                case Failure failure:
+                    _log.Error(failure.Exception, "Error during snapshot store initialization");
+                    Context.Stop(Self);
+                    return true;
+
+                default:
+                    Stash?.Stash();
+                    return true;
+            }
+        }
     }
 }
