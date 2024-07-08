@@ -8,7 +8,7 @@ namespace Akka.Persistence.DynamoDb.Test.Query
     [Collection(DynamoDbTestCollection.Name)]
     public class DynamoDbPersistenceIdsSpec : PersistenceIdsSpec
     {
-        public DynamoDbPersistenceIdsSpec(LocalstackDynamoDbFixture fixture)
+        public DynamoDbPersistenceIdsSpec(DynamoDbDatabaseFixture fixture)
             : base(DynamoDbStorageConfigHelper.DynamoDbConfig(fixture))
         {
             DynamoDbPersistence.Get(Sys);
