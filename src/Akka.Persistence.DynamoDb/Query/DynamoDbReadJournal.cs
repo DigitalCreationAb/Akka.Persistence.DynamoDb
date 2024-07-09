@@ -1,11 +1,8 @@
 using System;
-using Akka.Actor;
 using Akka.Configuration;
-using Akka.Persistence.DynamoDb.Journal;
 using Akka.Persistence.DynamoDb.Query.Publishers;
 using Akka.Persistence.Query;
 using Akka.Streams.Dsl;
-using Amazon.DynamoDBv2.DocumentModel;
 
 namespace Akka.Persistence.DynamoDb.Query
 {
@@ -14,32 +11,17 @@ namespace Akka.Persistence.DynamoDb.Query
         IEventsByPersistenceIdQuery,
         ICurrentEventsByPersistenceIdQuery,
         IEventsByTagQuery,
-        ICurrentEventsByTagQuery,
-        IAllEventsQuery,
-        ICurrentAllEventsQuery
+        ICurrentEventsByTagQuery
     {
         private readonly TimeSpan _refreshInterval;
         private readonly string _writeJournalPluginId;
         private readonly int _maxBufferSize;
-        private readonly Lazy<EventQueriesSource> _eventQueriesSource;
 
-        public DynamoDbReadJournal(Config config, ActorSystem actorSystem)
+        public DynamoDbReadJournal(Config config)
         {
             _refreshInterval = config.GetTimeSpan("refresh-interval");
             _writeJournalPluginId = config.GetString("write-plugin");
             _maxBufferSize = config.GetInt("max-buffer-size");
-
-            _eventQueriesSource = new Lazy<EventQueriesSource>(() =>
-            {
-                var writePluginSettings =
-                    DynamoDbJournalSettings.Create(actorSystem.Settings.Config.GetConfig(_writeJournalPluginId));
-
-                var dynamodbClient = DynamoDbSetup.InitClient(writePluginSettings);
-
-                var table = Table.LoadTable(dynamodbClient, writePluginSettings.TableName);
-
-                return new EventQueriesSource(table, actorSystem);
-            });
         }
 
         public const string Identifier = "akka.persistence.query.journal.dynamodb";
@@ -130,16 +112,6 @@ namespace Akka.Persistence.DynamoDb.Query
                 NoOffset => CurrentEventsByTag(tag, new Sequence(0L)),
                 _ => throw new ArgumentException($"{GetType().Name} does not support {offset.GetType().Name} offsets")
             };
-        }
-
-        public Source<EventEnvelope, NotUsed> AllEvents(Offset offset)
-        {
-            return Source.From(() => _eventQueriesSource.Value.QueryAll(offset, false));
-        }
-
-        public Source<EventEnvelope, NotUsed> CurrentAllEvents(Offset offset)
-        {
-            return Source.From(() => _eventQueriesSource.Value.QueryAll(offset, true));
         }
     }
 }

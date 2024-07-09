@@ -36,16 +36,23 @@ namespace Akka.Persistence.DynamoDb.Journal
         {
             var serializer = system.Serialization.FindSerializerFor(Type);
 
-            var payload = serializer.FromBinary(GetAttributeValue(Keys.Payload, item => item.B.ToArray()), Type);
+            try
+            {
+                var payload = serializer.FromBinary(GetAttributeValue(Keys.Payload, item => item.B.ToArray()), Type);
 
-            return new Persistent(
-                payload ?? new object(),
-                SequenceNumber,
-                PersistenceId,
-                Manifest,
-                sender: ActorRefs.NoSender,
-                writerGuid: WriterGuid,
-                timestamp: Timestamp);
+                return new Persistent(
+                    payload ?? new object(),
+                    SequenceNumber,
+                    PersistenceId,
+                    Manifest,
+                    sender: ActorRefs.NoSender,
+                    writerGuid: WriterGuid,
+                    timestamp: Timestamp);
+            }
+            catch (Exception e)
+            {
+                throw new Exception($"Failed deserializing event {SequenceNumber} from {PersistenceId}", e);
+            }
         }
 
         public static (IImmutableList<Document> docs, IImmutableList<string> tags) ToDocument(
