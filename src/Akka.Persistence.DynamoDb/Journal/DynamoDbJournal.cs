@@ -355,12 +355,15 @@ namespace Akka.Persistence.DynamoDb.Journal
 
                     _log.Debug("Sending replayed message: persistenceId:{0} - sequenceNr:{1}",
                         result.PersistenceId, result.SequenceNumber);
-
-                    replay.ReplyTo.Tell(new ReplayedTaggedMessage(
-                            result.ToPersistent(_actorSystem),
-                            replay.Tag,
-                            result.Timestamp),
-                        ActorRefs.NoSender);
+                    
+                    foreach (var adaptedRepresentation in AdaptFromJournal(result.ToPersistent(_actorSystem)))
+                    {
+                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(
+                                adaptedRepresentation,
+                                replay.Tag,
+                                result.Timestamp),
+                            ActorRefs.NoSender);
+                    }
 
                     maxOrdering = Math.Max(maxOrdering, result.Timestamp);
 

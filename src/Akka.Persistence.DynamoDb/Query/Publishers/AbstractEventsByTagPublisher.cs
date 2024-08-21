@@ -165,6 +165,10 @@ namespace Akka.Persistence.DynamoDb.Query.Publishers
 
                 case Request:
                     Buffer.DeliverBuffer(TotalDemand);
+                    
+                    if (Buffer.Length < TotalDemand)
+                        Replay();
+                    
                     return true;
 
                 case EventsByTagPublisher.Continue:
