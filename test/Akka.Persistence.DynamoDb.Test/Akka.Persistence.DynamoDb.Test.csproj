@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Akka.Persistence.TCK" Version="1.5.26" />
+    <PackageReference Include="Akka.Persistence.TCK" Version="1.5.27.1" />
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.1">
