@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Akka.Persistence.DynamoDb.Journal
@@ -101,10 +102,10 @@ namespace Akka.Persistence.DynamoDb.Journal
             if (returnedItems == 0)
                 NotifyNewPersistenceIdAdded(persistenceId);
         }
-
-        public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
+        
+        public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr, CancellationToken cancellationToken)
         {
-            var item = await _table!.GetItemAsync(EventDocument.GetHighestSequenceNumberGroupKey(persistenceId), 0L);
+            var item = await _table!.GetItemAsync(EventDocument.GetHighestSequenceNumberGroupKey(persistenceId), 0L, cancellationToken);
 
             var eventDocument = item != null ? new EventDocument(item) : null;
 
@@ -116,7 +117,9 @@ namespace Akka.Persistence.DynamoDb.Journal
             return sequenceNumber;
         }
 
-        protected override async Task<IImmutableList<Exception?>?> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
+        protected override async Task<IImmutableList<Exception?>?> WriteMessagesAsync(
+            IEnumerable<AtomicWrite> messages,
+            CancellationToken cancellationToken)
         {
             var results = new List<Exception?>();
 
@@ -179,7 +182,10 @@ namespace Akka.Persistence.DynamoDb.Journal
             return results.Any(x => x != null) ? results.ToImmutableList() : null;
         }
 
-        protected override async Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
+        protected override async Task DeleteMessagesToAsync(
+            string persistenceId, 
+            long toSequenceNr, 
+            CancellationToken cancellationToken)
         {
             var filter = new QueryFilter(EventDocument.Keys.SequenceNumber, QueryOperator.LessThanOrEqual, toSequenceNr);
 
@@ -187,14 +193,14 @@ namespace Akka.Persistence.DynamoDb.Journal
 
             while (!search.IsDone)
             {
-                var items = await search.GetNextSetAsync();
+                var items = await search.GetNextSetAsync(cancellationToken);
 
                 var batch = _table.CreateBatchWrite();
 
                 foreach (var item in items)
                     batch.AddItemToDelete(item);
 
-                await batch.ExecuteAsync();
+                await batch.ExecuteAsync(cancellationToken);
             }
         }
 

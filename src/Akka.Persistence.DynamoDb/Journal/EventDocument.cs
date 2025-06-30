@@ -34,7 +34,7 @@ namespace Akka.Persistence.DynamoDb.Journal
         
         public IPersistentRepresentation ToPersistent(ActorSystem system)
         {
-            var serializer = system.Serialization.FindSerializerFor(Type);
+            var serializer = system.Serialization.FindSerializerForType(Type);
 
             try
             {
