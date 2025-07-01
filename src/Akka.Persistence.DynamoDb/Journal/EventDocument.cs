@@ -30,7 +30,7 @@ namespace Akka.Persistence.DynamoDb.Journal
 
         public long HighestSequenceNumber => GetLongValue(Keys.HighestSequenceNumber);
 
-        public Type? Type => Type.GetType(GetStringValue(Keys.Type) ?? "System.Object");
+        public Type Type => Type.GetType(GetStringValue(Keys.Type) ?? "System.Object") ?? typeof(object);
         
         public IPersistentRepresentation ToPersistent(ActorSystem system)
         {
