@@ -93,7 +93,10 @@ namespace Akka.Persistence.DynamoDb.Journal
 
                     var eventDocument = new EventDocument(item);
 
-                    recoveryCallback(eventDocument.ToPersistent(_actorSystem));
+                    var result = eventDocument.ToPersistent(_actorSystem);
+                    
+                    if (result != null)
+                        recoveryCallback(result);
 
                     returnedItems++;
                 }
@@ -361,14 +364,19 @@ namespace Akka.Persistence.DynamoDb.Journal
 
                     _log.Debug("Sending replayed message: persistenceId:{0} - sequenceNr:{1}",
                         result.PersistenceId, result.SequenceNumber);
-                    
-                    foreach (var adaptedRepresentation in AdaptFromJournal(result.ToPersistent(_actorSystem)))
+
+                    var persistent = result.ToPersistent(_actorSystem);
+
+                    if (persistent != null)
                     {
-                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(
-                                adaptedRepresentation,
-                                replay.Tag,
-                                result.Timestamp),
-                            ActorRefs.NoSender);
+                        foreach (var adaptedRepresentation in AdaptFromJournal(persistent))
+                        {
+                            replay.ReplyTo.Tell(new ReplayedTaggedMessage(
+                                    adaptedRepresentation,
+                                    replay.Tag,
+                                    result.Timestamp),
+                                ActorRefs.NoSender);
+                        }
                     }
 
                     maxOrdering = Math.Max(maxOrdering, result.Timestamp);

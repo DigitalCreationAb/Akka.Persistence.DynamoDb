@@ -30,18 +30,24 @@ namespace Akka.Persistence.DynamoDb.Journal
 
         public long HighestSequenceNumber => GetLongValue(Keys.HighestSequenceNumber);
 
-        public Type Type => Type.GetType(GetStringValue(Keys.Type) ?? "System.Object") ?? typeof(object);
+        public Type? Type => Type.GetType(GetStringValue(Keys.Type) ?? "");
         
-        public IPersistentRepresentation ToPersistent(ActorSystem system)
+        public IPersistentRepresentation? ToPersistent(ActorSystem system)
         {
+            if (Type == null)
+                return null;
+
             var serializer = system.Serialization.FindSerializerForType(Type);
 
             try
             {
                 var payload = serializer.FromBinary(GetAttributeValue(Keys.Payload, item => item.B.ToArray()), Type);
 
+                if (payload == null)
+                    return null;
+                
                 return new Persistent(
-                    payload ?? new object(),
+                    payload,
                     SequenceNumber,
                     PersistenceId,
                     Manifest,
